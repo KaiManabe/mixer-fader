@@ -1,0 +1,5 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "UJ20-C-H-G-SMT-1-P16-TR")(type "KiCad")(uri "${KIPRJMOD}/../../symbols/UJ20-C-H-G-SMT-1-P16-TR.kicad_sym")(options "")(descr ""))
+  (lib (name "SMF5.0CA")(type "KiCad")(uri "${KIPRJMOD}/../../symbols/SMF5.0CA.kicad_sym")(options "")(descr ""))
+)
