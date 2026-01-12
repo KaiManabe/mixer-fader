@@ -8,21 +8,23 @@
 1. DISPLAY-DFF-D
 1. DISPLAY-DFF-CLK
 1. DISPLAY-DFF-CLR
+1. DISPLAY-SPI-DC
 1. DISPLAY-SPI-MOSI
 1. DISPLAY-SPI-CLK
 1. LED-DATA
 1. LED-CLK
 1. LED-LATCH
-1. LED-LATCHBLANK
 1. ENC-DATA
 1. ENC-LATCH
 1. ENC-CLK
 
 ### SPI通信
 ![image0301](../00.images/0301.png)
+- SPI-DC追加
 
 ### レベルメータ
 ![image0302](../00.images/0302.png)
+- LED-BLANK削除
 
 ### ロータリーエンコーダ
 ![image0303](../00.images/0303.png)
@@ -58,7 +60,7 @@
 - 2x スイッチ付ロータリーエンコーダ
   - マスターボリューム用
   - ページ送り用
-- 3x 5pinポゴピン (メス)
+- 3x 5pinポゴピン (オス)
   - デイジーチェーン通信用
 - 16x チップLED
   - レベルメータ用
@@ -71,9 +73,9 @@
   - 液晶FPC用
 - スイッチ付ロータリーエンコーダ
   - ボリューム用
-- 3x 5pinポゴピン (オス)
-  - デイジーチェーン通信用
 - 3x 5pinポゴピン (メス)
+  - デイジーチェーン通信用
+- 3x 5pinポゴピン (オス)
   - デイジーチェーン通信用
 - 16x チップLED
   - レベルメータ用
@@ -82,5 +84,5 @@
 
 ## エンドキャップ
 ### 構成要素
-- 3x 5pinポゴピン (オス)
+- 3x 5pinポゴピン (メス)
   - デイジーチェーン通信用

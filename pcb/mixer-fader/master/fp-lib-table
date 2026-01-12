@@ -8,4 +8,5 @@
   (lib (name "PogoPinConnector")(type "KiCad")(uri "${KIPRJMOD}/../common/footprints/PogoPinConnector.pretty")(options "")(descr ""))
   (lib (name "2328702")(type "KiCad")(uri "${KIPRJMOD}/../common/footprints/2328702.pretty")(options "")(descr ""))
   (lib (name "LevelMeter")(type "KiCad")(uri "${KIPRJMOD}/../common/footprints/LevelMeter.pretty")(options "")(descr ""))
+  (lib (name "pcb")(type "KiCad")(uri "${KIPRJMOD}/pcb.pretty")(options "")(descr ""))
 )
