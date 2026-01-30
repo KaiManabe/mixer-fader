@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "ABLS-12.000MHZ-B4-T")(type "KiCad")(uri "${KIPRJMOD}/../../footprints/ABLS-12.000MHZ-B4-T.pretty")(options "")(descr ""))
+)
