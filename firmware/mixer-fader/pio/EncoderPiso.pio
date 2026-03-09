@@ -1,0 +1,14 @@
+.program encoder_piso
+.side_set 1
+
+
+public start:
+    pull block          side 1 
+    out x, 32           side 1
+    set pins, 0         side 1
+    nop                 side 1 [2]
+    set pins, 1         side 1
+
+bit_loop:
+    in pins, 1          side 0 [2]
+    jmp x-- bit_loop    side 1 [2]

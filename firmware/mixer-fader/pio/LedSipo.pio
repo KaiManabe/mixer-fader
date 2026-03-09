@@ -1,0 +1,19 @@
+.program led_sipo
+.side_set 1 
+
+public start:
+    pull block             side 1
+    out  y, 32             side 1
+
+.wrap_target
+    mov  x, y              side 1
+
+bit_loop:
+    out  pins, 1           side 0 [1]
+    jmp  x--, bit_loop     side 1 [1]
+
+    set  pins, 1           side 1 [1]
+    nop                    side 1 [1]
+    set  pins, 0           side 1 [1]
+    nop                    side 1 [1]
+.wrap
