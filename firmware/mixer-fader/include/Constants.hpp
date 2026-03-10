@@ -45,8 +45,8 @@ namespace Constants{
 
     namespace Usb{
         const uint16_t RX_BUFSIZE = 64;
-        const uint32_t RX_BUF_FRAMECOUNT = 16;
-        const uint32_t TX_BUF_FRAMECOUNT = 128;
+        const uint32_t RX_BUF_FRAMECOUNT = 5;
+        const uint32_t TX_BUF_FRAMECOUNT = 64;
     }
 }
 
