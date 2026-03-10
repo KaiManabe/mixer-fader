@@ -20,6 +20,9 @@ public:
     // Called to handle bulk IN transmission
     void handleBulkInTransmit();
     
+    // Called when USB is mounted to send INITIALIZED frame
+    void sendInitialized();
+    
 private:
     UsbAdapter();
     

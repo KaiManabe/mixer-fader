@@ -23,6 +23,10 @@
 /* Max packet size for bulk endpoints */
 #define CFG_TUD_VENDOR_EPSIZE 64
 
+/* RX/TX FIFO buffer sizes (must be >= EPSIZE) */
+#define CFG_TUD_VENDOR_RX_BUFSIZE 256
+#define CFG_TUD_VENDOR_TX_BUFSIZE 256
+
 /* String descriptor support */
 #define CFG_TUD_STR_APPLY_MACROS 1
 

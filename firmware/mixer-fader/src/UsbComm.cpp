@@ -15,12 +15,6 @@ UsbComm::UsbComm(Display& disp, LevelMeter& lvl):
     for(int i = 0; i < Constants::Usb::TX_BUF_FRAMECOUNT; ++i){
         m_txBuf[i].resize(FD_ADDR_ARGUMENTS + ARGUMENT_LENGTH);
     }
-    
-    auto initFrame = FdFrame();
-    initFrame.eventType = FdEventType::INITIALIZED;
-    initFrame.ready = false;
-    initFrame.eventArguments.clear();
-    putTxFrame(initFrame);
 }
 
 
@@ -112,6 +106,14 @@ void UsbComm::sendStatus(){
     auto f = FdFrame();
     f.eventType = FdEventType::STATUS;
     f.ready = !isBusy;
+    f.eventArguments.clear();
+    putTxFrame(f);
+}
+
+void UsbComm::sendInitialized(){
+    auto f = FdFrame();
+    f.eventType = FdEventType::INITIALIZED;
+    f.ready = !isRxFull();
     f.eventArguments.clear();
     putTxFrame(f);
 }

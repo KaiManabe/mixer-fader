@@ -97,7 +97,7 @@ bool WinUsbDevice::open()
 
     printf("[INFO] Device path: %s\n", devicePath.c_str());
 
-    // Open device file handle
+    // Open device file handle (FILE_FLAG_OVERLAPPED required by WinUsb_Initialize)
     m_deviceHandle = CreateFileA(
         devicePath.c_str(),
         GENERIC_READ | GENERIC_WRITE,
@@ -120,6 +120,11 @@ bool WinUsbDevice::open()
         m_deviceHandle = INVALID_HANDLE_VALUE;
         return false;
     }
+
+    // Set pipe policies: RAW_IO for performance, SHORT_PACKET_TERMINATE off
+    UCHAR rawIo = TRUE;
+    WinUsb_SetPipePolicy(m_winusbHandle, USB_EP_IN,  RAW_IO, sizeof(rawIo), &rawIo);
+    WinUsb_SetPipePolicy(m_winusbHandle, USB_EP_OUT, RAW_IO, sizeof(rawIo), &rawIo);
 
     printf("[INFO] WinUSB device opened successfully\n");
     return true;
@@ -149,6 +154,10 @@ int WinUsbDevice::bulkWrite(const std::vector<uint8_t>& data)
 {
     if (!isOpen()) return -1;
 
+    OVERLAPPED ov = {};
+    ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    if (ov.hEvent == NULL) return -1;
+
     ULONG bytesWritten = 0;
     BOOL ok = WinUsb_WritePipe(
         m_winusbHandle,
@@ -156,8 +165,23 @@ int WinUsbDevice::bulkWrite(const std::vector<uint8_t>& data)
         const_cast<uint8_t*>(data.data()),
         static_cast<ULONG>(data.size()),
         &bytesWritten,
-        NULL
+        &ov
     );
+
+    if (!ok && GetLastError() == ERROR_IO_PENDING) {
+        DWORD waitResult = WaitForSingleObject(ov.hEvent, 5000);
+        if (waitResult == WAIT_OBJECT_0) {
+            WinUsb_GetOverlappedResult(m_winusbHandle, &ov, &bytesWritten, FALSE);
+            ok = TRUE;
+        } else {
+            WinUsb_AbortPipe(m_winusbHandle, USB_EP_OUT);
+            fprintf(stderr, "[ERROR] WinUsb_WritePipe timed out\n");
+            CloseHandle(ov.hEvent);
+            return -1;
+        }
+    }
+
+    CloseHandle(ov.hEvent);
 
     if (!ok) {
         fprintf(stderr, "[ERROR] WinUsb_WritePipe failed: %lu\n", GetLastError());
@@ -172,15 +196,9 @@ std::vector<uint8_t> WinUsbDevice::bulkRead(size_t maxBytes, uint32_t timeoutMs)
 {
     if (!isOpen()) return {};
 
-    // Set pipe timeout
-    ULONG timeout = timeoutMs;
-    WinUsb_SetPipePolicy(
-        m_winusbHandle,
-        USB_EP_IN,
-        PIPE_TRANSFER_TIMEOUT,
-        sizeof(timeout),
-        &timeout
-    );
+    OVERLAPPED ov = {};
+    ov.hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+    if (ov.hEvent == NULL) return {};
 
     std::vector<uint8_t> buf(maxBytes);
     ULONG bytesRead = 0;
@@ -190,16 +208,25 @@ std::vector<uint8_t> WinUsbDevice::bulkRead(size_t maxBytes, uint32_t timeoutMs)
         buf.data(),
         static_cast<ULONG>(buf.size()),
         &bytesRead,
-        NULL
+        &ov
     );
 
-    if (!ok) {
-        DWORD err = GetLastError();
-        if (err == ERROR_SEM_TIMEOUT) {
-            // Timeout — no data available
-            return {};
+    if (!ok && GetLastError() == ERROR_IO_PENDING) {
+        DWORD waitResult = WaitForSingleObject(ov.hEvent, timeoutMs);
+        if (waitResult == WAIT_OBJECT_0) {
+            WinUsb_GetOverlappedResult(m_winusbHandle, &ov, &bytesRead, FALSE);
+            ok = TRUE;
+        } else {
+            WinUsb_AbortPipe(m_winusbHandle, USB_EP_IN);
+            CloseHandle(ov.hEvent);
+            return {};  // timeout
         }
-        fprintf(stderr, "[ERROR] WinUsb_ReadPipe failed: %lu\n", err);
+    }
+
+    CloseHandle(ov.hEvent);
+
+    if (!ok) {
+        fprintf(stderr, "[ERROR] WinUsb_ReadPipe failed: %lu\n", GetLastError());
         return {};
     }
 

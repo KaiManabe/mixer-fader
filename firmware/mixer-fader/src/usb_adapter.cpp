@@ -50,12 +50,26 @@ void UsbAdapter::process() {
     handleBulkInTransmit();
 }
 
+void UsbAdapter::sendInitialized() {
+    if (m_usb == nullptr) return;
+    m_usb->sendInitialized();
+}
+
 // TinyUSB vendor class callbacks
 extern "C" {
-    // Called when bulk OUT data is received
-    void tud_vendor_rx_cb(uint8_t itf, uint8_t const* buffer, uint16_t bufsize) {
-        (void)itf;
-        UsbAdapter::getInstance().onBulkOutComplete(buffer, bufsize);
+    // Called when device is mounted (USB host connected & configured)
+    void tud_mount_cb(void) {
+        UsbAdapter::getInstance().sendInitialized();
+    }
+
+    // Called when bulk OUT data is available in FIFO
+    void tud_vendor_rx_cb(uint8_t itf) {
+        uint8_t buf[64];
+        while (tud_vendor_n_available(itf)) {
+            uint32_t count = tud_vendor_n_read(itf, buf, sizeof(buf));
+            if (count == 0) break;
+            UsbAdapter::getInstance().onBulkOutComplete(buf, static_cast<uint16_t>(count));
+        }
     }
     
     // Called when bulk IN transfer completes
