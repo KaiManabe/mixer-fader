@@ -61,6 +61,8 @@ void UsbComm::putRxByteBuf(uint8_t b){
         ignoreingBytes = nextFrameSize - DF_ADDR_FRAMELENGTH - sizeof(uint32_t);
     }
 
+    sendStatus();
+
     nextFrameSize = 0;
     incomingFrameSize = 0;
 }

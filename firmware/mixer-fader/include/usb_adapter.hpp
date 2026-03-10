@@ -2,6 +2,7 @@
 #define _USB_ADAPTER_HPP_
 
 #include <stdint.h>
+#include "common/UsbDesc.h"
 
 // Forward declaration
 class UsbComm;
@@ -25,8 +26,8 @@ private:
     UsbComm* m_usb;
     static UsbAdapter* instance;
     
-    static constexpr uint8_t BULK_OUT_EP = 0x01;  // OUT endpoint
-    static constexpr uint8_t BULK_IN_EP = 0x82;   // IN endpoint (0x02 | 0x80)
+    static constexpr uint8_t BULK_OUT_EP = USB_EP_OUT;
+    static constexpr uint8_t BULK_IN_EP  = USB_EP_IN;
 };
 
 #endif

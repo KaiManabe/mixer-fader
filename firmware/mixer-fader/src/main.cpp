@@ -80,6 +80,15 @@ int main(){
 
     printf("Initialized. Slave count: %d\n", disp.getSlaveCountReference());
 
+    /* ---------------------------------------------------------
+     初期化完了応答
+    --------------------------------------------------------- */
+    auto initFrame = FdFrame();
+    initFrame.eventType = FdEventType::INITIALIZED;
+    initFrame.eventArguments.resize(1);
+    initFrame.eventArguments[0] = disp.getSlaveCountReference();
+    usb.putTxFrame(initFrame);
+
     while(1){
         tud_task();
         enc.routine();

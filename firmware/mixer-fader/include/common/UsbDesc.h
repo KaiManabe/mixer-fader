@@ -1,68 +1,48 @@
 #ifndef _USBDESC_H_
 #define _USBDESC_H_
 
-#include <stdint.h>
-#include <string.h>
-#include "tusb.h"
+/* ========================= USB Device Identifiers ========================== */
 
-// USB VID/PID
-static const uint16_t USB_VID = 0xcafe;
-static const uint16_t USB_PID = 0x4000;
+#define USB_VID  0xCAFE
+#define USB_PID  0x4000
 
-// Endpoint definitions
-static const uint8_t USB_EP_OUT = 0x01;
-static const uint8_t USB_EP_IN  = 0x82;
-static const uint8_t USB_VENDOR_EPSIZE = 64;
+/* =========================== Endpoint Definitions ========================== */
 
-// Interface numbers
-static const uint8_t USB_ITF_NUM_VENDOR = 0;
-static const uint8_t USB_ITF_NUM_TOTAL = 1;
+#define USB_EP_OUT         0x01
+#define USB_EP_IN          0x82
+#define USB_VENDOR_EPSIZE  64
 
-// String descriptor indices
-static const uint8_t USB_STR_LANG = 0;
-static const uint8_t USB_STR_MANUFACTURER = 1;
-static const uint8_t USB_STR_PRODUCT = 2;
-static const uint8_t USB_STR_SERIAL = 3;
-static const uint8_t USB_STR_INTERFACE = 4;
+/* ============================ Interface Numbers ============================ */
 
-// ============================= String Descriptors ============================== //
+#define USB_ITF_NUM_VENDOR  0
+#define USB_ITF_NUM_TOTAL   1
 
-// String descriptor 0: Language
-static const uint16_t desc_str_lan[] = {
-    (TUSB_DESC_STRING << 8) | 4,
-    0x0409  // English (US)
-};
+/* ======================== String Descriptor Indices ======================== */
 
-// String descriptor 1: Manufacturer
-static const uint16_t desc_str_manufact[] = {
-    (TUSB_DESC_STRING << 8) | (2 + 12*2),
-    'R', 'a', 's', 'p', 'b', 'e', 'r', 'r', 'y', ' ', 'P', 'i'
-};
+#define USB_STR_LANG          0
+#define USB_STR_MANUFACTURER  1
+#define USB_STR_PRODUCT       2
+#define USB_STR_SERIAL        3
+#define USB_STR_INTERFACE     4
 
-// String descriptor 2: Product
-static const uint16_t desc_str_product[] = {
-    (TUSB_DESC_STRING << 8) | (2 + 13*2),
-    'M', 'i', 'x', 'e', 'r', ' ', 'F', 'a', 'd', 'e', 'r', ' ', 'D', 'e', 'v'
-};
+/* ===================== DeviceInterfaceGUID (WinUSB) ======================== */
+/*  {d2f46ddb-4f60-4307-8e73-bb2e8cbe6eb4}                                   */
 
-// String descriptor 3: Serial Number
-static const uint16_t desc_str_serial[] = {
-    (TUSB_DESC_STRING << 8) | (2 + 12*2),
-    '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'A', 'B'
-};
+#define USB_DEVICE_INTERFACE_GUID_DATA1  0xd2f46ddb
+#define USB_DEVICE_INTERFACE_GUID_DATA2  0x4f60
+#define USB_DEVICE_INTERFACE_GUID_DATA3  0x4307
+#define USB_DEVICE_INTERFACE_GUID_DATA4  { 0x8e, 0x73, 0xbb, 0x2e, 0x8c, 0xbe, 0x6e, 0xb4 }
 
-// String descriptor 4: Interface
-static const uint16_t desc_str_interface[] = {
-    (TUSB_DESC_STRING << 8) | (2 + 6*2),
-    'C', 'u', 's', 't', 'o', 'm'
-};
+#define USB_DEVICE_INTERFACE_GUID_STR    "{d2f46ddb-4f60-4307-8e73-bb2e8cbe6eb4}"
 
-static const uint16_t *string_desc_arr[] = {
-    desc_str_lan,
-    desc_str_manufact,
-    desc_str_product,
-    desc_str_serial,
-    desc_str_interface
-};
+/* UTF-16LE byte sequence for MS OS 2.0 descriptor (with double-null terminator) */
+#define USB_DEVICE_INTERFACE_GUID_UTF16LE \
+    '{', 0x00, 'd', 0x00, '2', 0x00, 'f', 0x00, '4', 0x00, '6', 0x00, \
+    'd', 0x00, 'd', 0x00, 'b', 0x00, '-', 0x00, '4', 0x00, 'f', 0x00, \
+    '6', 0x00, '0', 0x00, '-', 0x00, '4', 0x00, '3', 0x00, '0', 0x00, \
+    '7', 0x00, '-', 0x00, '8', 0x00, 'e', 0x00, '7', 0x00, '3', 0x00, \
+    '-', 0x00, 'b', 0x00, 'b', 0x00, '2', 0x00, 'e', 0x00, '8', 0x00, \
+    'c', 0x00, 'b', 0x00, 'e', 0x00, '6', 0x00, 'e', 0x00, 'b', 0x00, \
+    '4', 0x00, '}', 0x00, 0x00, 0x00, 0x00, 0x00
 
 #endif
