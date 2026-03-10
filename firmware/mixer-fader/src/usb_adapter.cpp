@@ -42,6 +42,14 @@ void UsbAdapter::handleBulkInTransmit() {
 
 void UsbAdapter::process() {
     if (m_usb == nullptr) return;
+
+    // Poll for received vendor OUT data
+    while (tud_vendor_n_available(0)) {
+        uint8_t buf[64];
+        uint32_t count = tud_vendor_n_read(0, buf, sizeof(buf));
+        if (count == 0) break;
+        onBulkOutComplete(buf, static_cast<uint16_t>(count));
+    }
     
     // Process any received complete frames
     m_usb->processReceivedFrame();
@@ -62,16 +70,6 @@ extern "C" {
         UsbAdapter::getInstance().sendInitialized();
     }
 
-    // Called when bulk OUT data is available in FIFO
-    void tud_vendor_rx_cb(uint8_t itf) {
-        uint8_t buf[64];
-        while (tud_vendor_n_available(itf)) {
-            uint32_t count = tud_vendor_n_read(itf, buf, sizeof(buf));
-            if (count == 0) break;
-            UsbAdapter::getInstance().onBulkOutComplete(buf, static_cast<uint16_t>(count));
-        }
-    }
-    
     // Called when bulk IN transfer completes
     void tud_vendor_tx_cb(uint8_t itf, uint32_t sent_bytes) {
         (void)itf;

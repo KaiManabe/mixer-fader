@@ -121,10 +121,9 @@ bool WinUsbDevice::open()
         return false;
     }
 
-    // Set pipe policies: RAW_IO for performance, SHORT_PACKET_TERMINATE off
-    UCHAR rawIo = TRUE;
-    WinUsb_SetPipePolicy(m_winusbHandle, USB_EP_IN,  RAW_IO, sizeof(rawIo), &rawIo);
-    WinUsb_SetPipePolicy(m_winusbHandle, USB_EP_OUT, RAW_IO, sizeof(rawIo), &rawIo);
+    // Reset pipes to clear any stale state
+    WinUsb_ResetPipe(m_winusbHandle, USB_EP_OUT);
+    WinUsb_ResetPipe(m_winusbHandle, USB_EP_IN);
 
     printf("[INFO] WinUSB device opened successfully\n");
     return true;
@@ -175,6 +174,7 @@ int WinUsbDevice::bulkWrite(const std::vector<uint8_t>& data)
             ok = TRUE;
         } else {
             WinUsb_AbortPipe(m_winusbHandle, USB_EP_OUT);
+            WinUsb_ResetPipe(m_winusbHandle, USB_EP_OUT);
             fprintf(stderr, "[ERROR] WinUsb_WritePipe timed out\n");
             CloseHandle(ov.hEvent);
             return -1;
@@ -218,6 +218,7 @@ std::vector<uint8_t> WinUsbDevice::bulkRead(size_t maxBytes, uint32_t timeoutMs)
             ok = TRUE;
         } else {
             WinUsb_AbortPipe(m_winusbHandle, USB_EP_IN);
+            WinUsb_ResetPipe(m_winusbHandle, USB_EP_IN);
             CloseHandle(ov.hEvent);
             return {};  // timeout
         }
