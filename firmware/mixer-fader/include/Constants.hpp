@@ -44,9 +44,9 @@ namespace Constants{
     }
 
     namespace Usb{
-        const uint16_t VID = 0xcafe;
-        const uint16_t PID = 0x4000;
-        const uint32_t RX_BUF_FRAMECOUNT = 10;
+        const uint16_t RX_BUFSIZE = 64;
+        const uint32_t RX_BUF_FRAMECOUNT = 16;
+        const uint32_t TX_BUF_FRAMECOUNT = 128;
     }
 }
 

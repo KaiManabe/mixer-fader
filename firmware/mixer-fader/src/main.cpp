@@ -8,8 +8,35 @@
 #include "Encoder.hpp"
 #include "Display.hpp"
 #include "LevelMeter.hpp"
+#include "UsbComm.hpp"
+#include "usb_adapter.hpp"
+#include "tusb.h"
 
 void init_gpio();
+
+void sendTxFrame(UsbComm& usb, const EncoderEvent& e){
+    auto f = FdFrame();
+    switch(e.event){
+    case EncoderEventType::ENC_PUSHDOWN:
+        f.eventType = FdEventType::ENC_PUSHD;
+        break;
+    case EncoderEventType::ENC_PUSHUP:
+        f.eventType = FdEventType::ENC_PUSHU;
+        break;
+    case EncoderEventType::ENC_ROTP:
+        f.eventType = FdEventType::ENC_ROTP;
+        break;
+    case EncoderEventType::ENC_ROTN:
+        f.eventType = FdEventType::ENC_ROTN;
+        break;
+    default:
+        break;
+    }
+    f.eventArguments.resize(1);
+    f.eventArguments[0] = e.slave_id;
+    usb.putTxFrame(f);
+}
+
 
 
 int main(){
@@ -17,57 +44,47 @@ int main(){
 
     init_gpio();
 
+    /* ---------------------------------------------------------
+     初期化
+    --------------------------------------------------------- */
+    printf("Initializing Display manager...\n");
+    auto disp = Display::getInstance();
+    printf("Initialized Display manager...\n");
 
-    auto d = Display::getInstance();
-    auto e = Encoder(d.getSlaveCountReference());
-    auto l = LevelMeter(d.getSlaveCountReference());
+    printf("Initializing Encoder manager...\n");
+    auto enc = Encoder(disp.getSlaveCountReference());
+    printf("Initialized Encoder manager...\n");
+    printf("Initializing LevelMeter manager...\n");
+    auto lvl = LevelMeter(disp.getSlaveCountReference());
+    printf("Initialized LevelMeter manager...\n");
 
-    int8_t vol[Constants::MAX_SLAVES + 1] = {0};
-    int16_t brightness[Constants::MAX_SLAVES + 1] = {0};
+    printf("Initializing TinyUSB...\n");
+    tusb_init();
+    printf("Initialized TinyUSB...\n");
 
-    auto test1 = [&d, &e, &l, &vol, &brightness](EncoderEvent event){
-        if(event.slave_id == 255) return;
+    printf("Initializing UsbComm...\n");
+    auto usb = UsbComm(disp, lvl);
+    printf("Initialized UsbComm...\n");
+    
+    printf("Initializing UsbAdapter...\n");
+    UsbAdapter::getInstance().init(&usb);
+    printf("Initialized UsbAdapter...\n");
 
-        if(event.event == EncoderEventType::ENC_ROTP) vol[event.slave_id]++;
-        if(event.event == EncoderEventType::ENC_ROTN) vol[event.slave_id]--;
-
-        if(event.event == EncoderEventType::ENC_ROTP) brightness[event.slave_id]+= 16;
-        if(event.event == EncoderEventType::ENC_ROTN) brightness[event.slave_id]-= 16;
-
-        if(vol[event.slave_id] > 16) vol[event.slave_id] = 16;
-        if(vol[event.slave_id] < 0) vol[event.slave_id] = 0;
-
-        l.setLevelAsValue(event.slave_id, vol[event.slave_id]);
-
-
-        if(brightness[event.slave_id] > 255) brightness[event.slave_id] = 255;
-        if(brightness[event.slave_id] < 0) brightness[event.slave_id] = 0;
-        
-        uint8_t r = (brightness[event.slave_id] >> 3);
-        uint8_t g = (brightness[event.slave_id] >> 2);
-        uint8_t b = (brightness[event.slave_id] >> 3);
-        uint16_t color = 0x0;
-        color |= (r << 11) & 0b1111100000000000;
-        color |= (g << 5)  & 0b0000011111100000;
-        color |= b         & 0b0000000000011111;
-        
-        // バッファ全体を同じ色で塗りつぶし
-        uint16_t img[Constants::Display::BUFSIZE16];
-        for(size_t i = 0; i < Constants::Display::BUFSIZE16; ++i){
-            img[i] = color;
-        }
-        
-        std::span<uint16_t, Constants::Display::BUFSIZE16> span_img(img);
-        d.transferBuffer(event.slave_id, span_img);
+    /* ---------------------------------------------------------
+     コールバック割当
+    --------------------------------------------------------- */
+    const auto callback = [&usb, &enc](EncoderEvent e){
+        sendTxFrame(usb, e);
     };
+    enc.attachEventListener(callback);
 
-
-    e.attachEventListener(test1);
-    printf("Initialized. Slave count: %d\n", d.getSlaveCountReference());
+    printf("Initialized. Slave count: %d\n", disp.getSlaveCountReference());
 
     while(1){
-        e.routine();
-        l.routine();
-        d.routine();
+        tud_task();
+        enc.routine();
+        lvl.routine();
+        disp.routine();
+        UsbAdapter::getInstance().process();
     }
 }

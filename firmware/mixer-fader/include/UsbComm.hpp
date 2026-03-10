@@ -1,8 +1,9 @@
 #ifndef _USBCOMM_HPP_
 #define _USBCOMM_HPP_
 
+#include "Endian.hpp"
 #include <cstddef>
-#include <cstdint>
+#include <stdint.h>
 #include <span>
 #include <vector>
 #include <array>
@@ -14,34 +15,31 @@
 
 class UsbComm{
 public:
-    UsbComm(Display& display, LevelMeter& levelMeter, uint8_t& slaveCount);
+    UsbComm(Display& disp, LevelMeter& lvl);
+    void putRxByteBuf(uint8_t b);
+    size_t getTxByteBuf(const uint8_t*& p, size_t& maxsize);
+    bool putTxFrame(FdFrame& f);
+    
+    void processReceivedFrame();
 
-    void appendRxData(std::span<const uint8_t> data);
-    void appendRxData(const uint8_t* data, size_t size);
-    size_t routine();
-    bool tryPopTxFrame(std::vector<uint8_t>& frame);
-
+    bool isRxFull();
+    bool isTxFull();
+    bool isTxEmpty();
+    bool isRxEmpty();
+    
 private:
-    static constexpr size_t MAX_FRAME_LENGTH = DF_ADDR_DATA + (Constants::Display::BUFSIZE16 * sizeof(uint16_t));
-    static constexpr size_t LEVELMETER_PAYLOAD_SIZE = sizeof(uint16_t);
-    static constexpr size_t RX_BUFFER_CAPACITY = MAX_FRAME_LENGTH * Constants::Usb::RX_BUF_FRAMECOUNT;
-    static constexpr size_t TX_QUEUE_CAPACITY = Constants::Usb::RX_BUF_FRAMECOUNT;
+    Display& m_disp;
+    LevelMeter& m_lvl;
 
-    Display& m_display;
-    LevelMeter& m_levelMeter;
-    uint8_t& m_slaveCount;
-    std::vector<uint8_t> m_rxBuffer;
-    std::vector<std::vector<uint8_t>> m_txFrameQueue;
+    std::vector<uint8_t> m_rxBuf[Constants::Usb::RX_BUF_FRAMECOUNT];
+    std::vector<uint8_t> m_txBuf[Constants::Usb::TX_BUF_FRAMECOUNT];
 
-    bool m_dropFrameActive;
-    size_t m_dropLengthBytes;
-    size_t m_dropRemainingBytes;
-    std::array<uint8_t, sizeof(DfFrame::FrameLength)> m_dropLengthBuffer;
+    size_t m_rxBufIdxIn;
+    size_t m_rxBufIdxOut;
+    size_t m_txBufIdxIn;
+    size_t m_txBufIdxOut;
 
-    bool tryPopFrame(std::vector<uint8_t>& rawFrame);
-    bool applyFrame(const DfFrame& frame);
-    void handleDropFrame(const uint8_t* data, size_t size, size_t& index);
-    void enqueueReceiveResult(bool ok);
+    void sendStatus();
 };
 
 #endif

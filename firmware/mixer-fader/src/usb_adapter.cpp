@@ -1,0 +1,67 @@
+#include "usb_adapter.hpp"
+#include "UsbComm.hpp"
+#include "tusb.h"
+
+// Static instance
+UsbAdapter* UsbAdapter::instance = nullptr;
+
+UsbAdapter::UsbAdapter() : m_usb(nullptr) {}
+
+UsbAdapter& UsbAdapter::getInstance() {
+    if (instance == nullptr) {
+        instance = new UsbAdapter();
+    }
+    return *instance;
+}
+
+void UsbAdapter::init(UsbComm* usb) {
+    m_usb = usb;
+}
+
+void UsbAdapter::onBulkOutComplete(uint8_t const* buffer, uint16_t bufsize) {
+    if (m_usb == nullptr) return;
+    
+    // Feed received bytes to UsbComm reception handler
+    for (uint16_t i = 0; i < bufsize; i++) {
+        m_usb->putRxByteBuf(buffer[i]);
+    }
+}
+
+void UsbAdapter::handleBulkInTransmit() {
+    if (m_usb == nullptr || m_usb->isTxEmpty()) return;
+    
+    const uint8_t* txPtr = nullptr;
+    size_t maxSize = 64;  // Bulk packet size
+    
+    size_t frameLen = m_usb->getTxByteBuf(txPtr, maxSize);
+    if (frameLen > 0 && txPtr != nullptr) {
+        tud_vendor_n_write(0, txPtr, frameLen);
+        tud_vendor_n_write_flush(0);
+    }
+}
+
+void UsbAdapter::process() {
+    if (m_usb == nullptr) return;
+    
+    // Process any received complete frames
+    m_usb->processReceivedFrame();
+    
+    // Handle TX transmission
+    handleBulkInTransmit();
+}
+
+// TinyUSB vendor class callbacks
+extern "C" {
+    // Called when bulk OUT data is received
+    void tud_vendor_rx_cb(uint8_t itf, uint8_t const* buffer, uint16_t bufsize) {
+        (void)itf;
+        UsbAdapter::getInstance().onBulkOutComplete(buffer, bufsize);
+    }
+    
+    // Called when bulk IN transfer completes
+    void tud_vendor_tx_cb(uint8_t itf, uint32_t sent_bytes) {
+        (void)itf;
+        (void)sent_bytes;
+        UsbAdapter::getInstance().handleBulkInTransmit();
+    }
+}
