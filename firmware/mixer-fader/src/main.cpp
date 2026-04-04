@@ -95,7 +95,7 @@ int main(){
         /* ---------------------------------------------------------
          ステータス定期送信
         --------------------------------------------------------- */
-        if(absolute_time_diff_us(lastStatusAt, get_absolute_time()) >= 100000){
+        if(absolute_time_diff_us(lastStatusAt, get_absolute_time()) >= Constants::Usb::STATUS_INTERVAL){
             usb.sendStatus();
             lastStatusAt = get_absolute_time();
         }

@@ -47,6 +47,7 @@ namespace Constants{
         const uint16_t RX_BUFSIZE = 64;
         const uint32_t RX_BUF_FRAMECOUNT = 5;
         const uint32_t TX_BUF_FRAMECOUNT = 64;
+        const uint32_t STATUS_INTERVAL = 1000 * 1000;
     }
 }
 
