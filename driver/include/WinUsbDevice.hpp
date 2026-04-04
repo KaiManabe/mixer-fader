@@ -36,6 +36,9 @@ public:
     /// @brief デバイスがオープン済みかどうか
     bool isOpen() const;
 
+    /// @brief デバイスが切断されたかどうか
+    bool isDisconnected() const;
+
     /// @brief Bulk OUT転送でデータを送信する
     /// @param data 送信するバイト列
     /// @return 送信バイト数 (失敗時 -1)
@@ -50,6 +53,10 @@ public:
 private:
     HANDLE m_deviceHandle;
     WINUSB_INTERFACE_HANDLE m_winusbHandle;
+    bool m_disconnected;
+
+    /// @brief I/O エラー時にデバイスを切断状態にする
+    void handleDeviceError();
 
     /// @brief SetupAPI でデバイスパスを取得する
     /// @return デバイスパス (見つからない場合は空文字列)

@@ -4,7 +4,7 @@
 CXX      := g++
 CXXFLAGS := -std=c++20 -Wall -Wextra -O2
 INCLUDES := -I include -I ../firmware/mixer-fader/include
-LDFLAGS  := -lwinusb -lsetupapi -lole32
+LDFLAGS  := -lwinusb -lsetupapi -lole32 -luuid -lshell32 -lgdi32
 
 SRCDIR   := src
 BUILDDIR := build

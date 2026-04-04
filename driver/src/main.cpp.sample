@@ -1,0 +1,127 @@
+#include <stdio.h>
+#include <stdint.h>
+#include <algorithm>
+
+#include "WinUsbDevice.hpp"
+#include "UsbComm.hpp"
+
+static constexpr int MAX_SLAVES = 8;
+static constexpr int LED_COUNT  = 16;
+
+/// 各スレーブの現在のレベル (0〜LED_COUNT)
+static int slaveLevel[MAX_SLAVES] = {};
+
+
+/// @brief レベル値(0〜16)から下位ビットを詰めた点灯パターンを返す
+static uint16_t levelToPattern(int level)
+{
+    if (level <= 0)         return 0x0000;
+    if (level >= LED_COUNT) return 0xFFFF;
+    return static_cast<uint16_t>((1u << level) - 1);
+}
+
+
+/// @brief FdFrame をログ出力する
+static void logFrame(const FdFrame& f)
+{
+    const char* name = "UNKNOWN";
+    switch (f.eventType) {
+    case FdEventType::INITIALIZED: name = "INITIALIZED"; break;
+    case FdEventType::STATUS:      name = "STATUS";      break;
+    case FdEventType::ENC_ROTP:    name = "ENC_ROTP";    break;
+    case FdEventType::ENC_ROTN:    name = "ENC_ROTN";    break;
+    case FdEventType::ENC_PUSHD:   name = "ENC_PUSHD";   break;
+    case FdEventType::ENC_PUSHU:   name = "ENC_PUSHU";   break;
+    }
+    printf("  event=%s  ready=%s  args=[", name, f.ready ? "true" : "false");
+    for (size_t i = 0; i < f.eventArguments.size(); ++i) {
+        if (i > 0) printf(", ");
+        printf("0x%02X", f.eventArguments[i]);
+    }
+    printf("]\n");
+}
+
+
+int main()
+{
+    printf("=== Mixer Fader Driver - UsbComm Sample ===\n");
+    printf("VID: 0x%04X  PID: 0x%04X\n", USB_VID, USB_PID);
+    printf("Press Ctrl+C to exit.\n\n");
+
+    // ---- デバイスオープン (未接続なら待機) ----
+    WinUsbDevice dev;
+    printf("[INFO] Waiting for device...\n");
+    while (!dev.open()) {
+        Sleep(1000);
+    }
+
+    UsbComm comm(dev);
+
+    // ---- コールバック登録 ----
+
+    // 全イベント共通ログ
+    comm.onEvent([](const FdFrame& f) {
+        logFrame(f);
+    });
+
+    // INITIALIZED 受信時
+    comm.onInitialized([](const FdFrame& f) {
+        printf("  -> Device initialized");
+        if (!f.eventArguments.empty())
+            printf(" (slaves=%d)", f.eventArguments[0]);
+        printf("\n");
+    });
+
+    // エンコーダ正転 → レベル+1 → LevelMeter 送信
+    comm.onEncRotP([&comm](const FdFrame& f) {
+        if (f.eventArguments.empty()) return;
+        uint8_t sid = f.eventArguments[0];
+        if (sid >= MAX_SLAVES) return;
+
+        slaveLevel[sid] = (std::min)(slaveLevel[sid] + 1, LED_COUNT);
+        uint16_t pat = levelToPattern(slaveLevel[sid]);
+        printf("  -> slave %d: level=%d pattern=0x%04X\n", sid, slaveLevel[sid], pat);
+        comm.sendLevelMeter(sid, pat);
+    });
+
+    // エンコーダ逆転 → レベル-1 → LevelMeter 送信
+    comm.onEncRotN([&comm](const FdFrame& f) {
+        if (f.eventArguments.empty()) return;
+        uint8_t sid = f.eventArguments[0];
+        if (sid >= MAX_SLAVES) return;
+
+        slaveLevel[sid] = (std::max)(slaveLevel[sid] - 1, 0);
+        uint16_t pat = levelToPattern(slaveLevel[sid]);
+        printf("  -> slave %d: level=%d pattern=0x%04X\n", sid, slaveLevel[sid], pat);
+        comm.sendLevelMeter(sid, pat);
+    });
+
+    // エンコーダ押下 → ミュート (全消灯)
+    comm.onEncPushD([&comm](const FdFrame& f) {
+        if (f.eventArguments.empty()) return;
+        uint8_t sid = f.eventArguments[0];
+        if (sid >= MAX_SLAVES) return;
+
+        slaveLevel[sid] = 0;
+        printf("  -> slave %d: MUTE\n", sid);
+        comm.sendLevelMeter(sid, 0x0000);
+    });
+
+    // USB 切断/再接続
+    comm.onDisconnect([]() {
+        printf("\n[WARN] Device disconnected. Waiting for reconnect...\n");
+    });
+
+    comm.onConnect([]() {
+        printf("[INFO] Device reconnected!\n\n");
+        // レベル状態をリセット
+        for (int i = 0; i < MAX_SLAVES; ++i) slaveLevel[i] = 0;
+    });
+
+    // ---- 受信ポーリング開始 (ブロッキング) ----
+    printf("[INFO] Entering poll loop...\n\n");
+    comm.poll(5000);
+
+    dev.close();
+    return 0;
+}

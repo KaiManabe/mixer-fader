@@ -9,7 +9,8 @@
 
 WinUsbDevice::WinUsbDevice()
     : m_deviceHandle(INVALID_HANDLE_VALUE),
-      m_winusbHandle(NULL)
+      m_winusbHandle(NULL),
+      m_disconnected(false)
 {
 }
 
@@ -126,6 +127,7 @@ bool WinUsbDevice::open()
     WinUsb_ResetPipe(m_winusbHandle, USB_EP_IN);
 
     printf("[INFO] WinUSB device opened successfully\n");
+    m_disconnected = false;
     return true;
 }
 
@@ -146,6 +148,19 @@ void WinUsbDevice::close()
 bool WinUsbDevice::isOpen() const
 {
     return m_deviceHandle != INVALID_HANDLE_VALUE && m_winusbHandle != NULL;
+}
+
+
+bool WinUsbDevice::isDisconnected() const
+{
+    return m_disconnected;
+}
+
+
+void WinUsbDevice::handleDeviceError()
+{
+    m_disconnected = true;
+    close();
 }
 
 
@@ -170,7 +185,11 @@ int WinUsbDevice::bulkWrite(const std::vector<uint8_t>& data)
     if (!ok && GetLastError() == ERROR_IO_PENDING) {
         DWORD waitResult = WaitForSingleObject(ov.hEvent, 5000);
         if (waitResult == WAIT_OBJECT_0) {
-            WinUsb_GetOverlappedResult(m_winusbHandle, &ov, &bytesWritten, FALSE);
+            if (!WinUsb_GetOverlappedResult(m_winusbHandle, &ov, &bytesWritten, FALSE)) {
+                CloseHandle(ov.hEvent);
+                handleDeviceError();
+                return -1;
+            }
             ok = TRUE;
         } else {
             WinUsb_AbortPipe(m_winusbHandle, USB_EP_OUT);
@@ -185,6 +204,7 @@ int WinUsbDevice::bulkWrite(const std::vector<uint8_t>& data)
 
     if (!ok) {
         fprintf(stderr, "[ERROR] WinUsb_WritePipe failed: %lu\n", GetLastError());
+        handleDeviceError();
         return -1;
     }
 
@@ -214,7 +234,11 @@ std::vector<uint8_t> WinUsbDevice::bulkRead(size_t maxBytes, uint32_t timeoutMs)
     if (!ok && GetLastError() == ERROR_IO_PENDING) {
         DWORD waitResult = WaitForSingleObject(ov.hEvent, timeoutMs);
         if (waitResult == WAIT_OBJECT_0) {
-            WinUsb_GetOverlappedResult(m_winusbHandle, &ov, &bytesRead, FALSE);
+            if (!WinUsb_GetOverlappedResult(m_winusbHandle, &ov, &bytesRead, FALSE)) {
+                CloseHandle(ov.hEvent);
+                handleDeviceError();
+                return {};
+            }
             ok = TRUE;
         } else {
             WinUsb_AbortPipe(m_winusbHandle, USB_EP_IN);
@@ -228,6 +252,7 @@ std::vector<uint8_t> WinUsbDevice::bulkRead(size_t maxBytes, uint32_t timeoutMs)
 
     if (!ok) {
         fprintf(stderr, "[ERROR] WinUsb_ReadPipe failed: %lu\n", GetLastError());
+        handleDeviceError();
         return {};
     }
 
