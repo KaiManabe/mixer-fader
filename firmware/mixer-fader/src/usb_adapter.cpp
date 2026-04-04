@@ -5,10 +5,7 @@
 // Static instance
 UsbAdapter* UsbAdapter::instance = nullptr;
 
-UsbAdapter::UsbAdapter() :
-    m_usb(nullptr),
-    m_txInFlight(false)
-{}
+UsbAdapter::UsbAdapter() : m_usb(nullptr) {}
 
 UsbAdapter& UsbAdapter::getInstance() {
     if (instance == nullptr) {
@@ -32,23 +29,15 @@ void UsbAdapter::onBulkOutComplete(uint8_t const* buffer, uint16_t bufsize) {
 
 void UsbAdapter::handleBulkInTransmit() {
     if (m_usb == nullptr || m_usb->isTxEmpty()) return;
-    if (m_txInFlight) return;
-    if (!tud_mounted()) return;
     
     const uint8_t* txPtr = nullptr;
     size_t maxSize = 64;  // Bulk packet size
     
     size_t frameLen = m_usb->getTxByteBuf(txPtr, maxSize);
     if (frameLen > 0 && txPtr != nullptr) {
-        m_txInFlight = true;
         tud_vendor_n_write(0, txPtr, frameLen);
         tud_vendor_n_write_flush(0);
     }
-}
-
-void UsbAdapter::onBulkInComplete() {
-    m_txInFlight = false;
-    handleBulkInTransmit();
 }
 
 void UsbAdapter::process() {
@@ -85,6 +74,6 @@ extern "C" {
     void tud_vendor_tx_cb(uint8_t itf, uint32_t sent_bytes) {
         (void)itf;
         (void)sent_bytes;
-        UsbAdapter::getInstance().onBulkInComplete();
+        UsbAdapter::getInstance().handleBulkInTransmit();
     }
 }

@@ -19,7 +19,6 @@ public:
     void putRxByteBuf(uint8_t b);
     size_t getTxByteBuf(const uint8_t*& p, size_t& maxsize);
     bool putTxFrame(FdFrame& f);
-    void sendStatus();
     void sendInitialized();
     
     void processReceivedFrame();
@@ -41,6 +40,7 @@ private:
     size_t m_txBufIdxIn;
     size_t m_txBufIdxOut;
 
+    void sendStatus();
 };
 
 #endif

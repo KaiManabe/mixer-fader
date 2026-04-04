@@ -81,9 +81,13 @@ int main(){
     printf("Initialized. Slave count: %d\n", disp.getSlaveCountReference());
 
     /* ---------------------------------------------------------
-     ステータス送信タイマ
+     初期化完了応答
     --------------------------------------------------------- */
-    absolute_time_t lastStatusAt = get_absolute_time();
+    auto initFrame = FdFrame();
+    initFrame.eventType = FdEventType::INITIALIZED;
+    initFrame.eventArguments.resize(1);
+    initFrame.eventArguments[0] = disp.getSlaveCountReference();
+    usb.putTxFrame(initFrame);
 
     while(1){
         tud_task();
@@ -91,13 +95,5 @@ int main(){
         lvl.routine();
         disp.routine();
         UsbAdapter::getInstance().process();
-
-        /* ---------------------------------------------------------
-         ステータス定期送信
-        --------------------------------------------------------- */
-        if(absolute_time_diff_us(lastStatusAt, get_absolute_time()) >= Constants::Usb::STATUS_INTERVAL){
-            usb.sendStatus();
-            lastStatusAt = get_absolute_time();
-        }
     }
 }

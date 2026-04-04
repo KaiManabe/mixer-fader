@@ -19,7 +19,6 @@ public:
     
     // Called to handle bulk IN transmission
     void handleBulkInTransmit();
-    void onBulkInComplete();
     
     // Called when USB is mounted to send INITIALIZED frame
     void sendInitialized();
@@ -28,7 +27,6 @@ private:
     UsbAdapter();
     
     UsbComm* m_usb;
-    bool m_txInFlight;
     static UsbAdapter* instance;
     
     static constexpr uint8_t BULK_OUT_EP = USB_EP_OUT;
