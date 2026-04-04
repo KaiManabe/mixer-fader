@@ -102,19 +102,22 @@ bool UsbComm::putTxFrame(FdFrame& f){
 }
 
 void UsbComm::sendStatus(){
-    bool isBusy = isRxFull();
+    // -------------------- ステータスフレームを構築 --------------------
     auto f = FdFrame();
     f.eventType = FdEventType::STATUS;
-    f.ready = !isBusy;
-    f.eventArguments.clear();
+    f.ready = !isRxFull();
+    f.eventArguments.resize(1);
+    f.eventArguments[0] = m_disp.getSlaveCountReference();
     putTxFrame(f);
 }
 
 void UsbComm::sendInitialized(){
+    // -------------------- 初期化フレームを構築 --------------------
     auto f = FdFrame();
     f.eventType = FdEventType::INITIALIZED;
     f.ready = !isRxFull();
-    f.eventArguments.clear();
+    f.eventArguments.resize(1);
+    f.eventArguments[0] = m_disp.getSlaveCountReference();
     putTxFrame(f);
 }
 

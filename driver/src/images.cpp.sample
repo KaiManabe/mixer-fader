@@ -1,0 +1,213 @@
+#include <windows.h>
+#include <mmdeviceapi.h>
+#include <audiopolicy.h>
+#include <endpointvolume.h>
+#include <psapi.h>
+#include <shellapi.h>
+#include <iostream>
+#include <string>
+#include <vector>
+#include <fstream>
+
+#pragma comment(lib, "Mmdevapi.lib")
+#pragma comment(lib, "Psapi.lib")
+#pragma comment(lib, "Shell32.lib")
+#pragma comment(lib, "Ole32.lib")
+#pragma comment(lib, "User32.lib")
+#pragma comment(lib, "Gdi32.lib")
+
+#define SAFE_RELEASE(punk) if ((punk) != NULL) { (punk)->Release(); (punk) = NULL; }
+
+// 【追加】std::wstring を std::string (Shift-JIS/CP_ACP) に変換するヘルパー関数
+std::string WStringToString(const std::wstring& wstr) {
+    if (wstr.empty()) return std::string();
+    // 必要なバッファサイズを取得
+    int size_needed = WideCharToMultiByte(CP_ACP, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+    std::string strTo(size_needed, 0);
+    // 変換実行
+    WideCharToMultiByte(CP_ACP, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+    return strTo;
+}
+
+// アイコンをファイル(.ico)に保存する関数
+bool SaveIconToFile(HICON hIcon, const std::wstring& filename) {
+    if (!hIcon) return false;
+
+    ICONINFO iconInfo;
+    if (!GetIconInfo(hIcon, &iconInfo)) return false;
+
+    BITMAP bmpColor, bmpMask;
+    GetObject(iconInfo.hbmColor, sizeof(BITMAP), &bmpColor);
+    GetObject(iconInfo.hbmMask, sizeof(BITMAP), &bmpMask);
+
+    int width = bmpColor.bmWidth;
+    int height = bmpColor.bmHeight;
+    int dwBytesColor = width * height * 4;
+    int dwBytesMask = (width * height) / 8;
+    if (dwBytesMask % 4 != 0) dwBytesMask += (4 - (dwBytesMask % 4));
+
+    // ビットマップ情報の準備
+    BITMAPINFOHEADER bi = { 0 };
+    bi.biSize = sizeof(BITMAPINFOHEADER);
+    bi.biWidth = width;
+    bi.biHeight = height * 2;
+    bi.biPlanes = 1;
+    bi.biBitCount = 32;
+    bi.biCompression = BI_RGB;
+
+    HDC hDC = GetDC(NULL);
+    std::vector<BYTE> colorBits(dwBytesColor);
+    std::vector<BYTE> maskBits(dwBytesMask);
+
+    BITMAPINFO bmi = { 0 };
+    bmi.bmiHeader = bi;
+    bmi.bmiHeader.biHeight = height; 
+    GetDIBits(hDC, iconInfo.hbmColor, 0, height, colorBits.data(), &bmi, DIB_RGB_COLORS);
+
+    bmi.bmiHeader.biBitCount = 1;
+    GetDIBits(hDC, iconInfo.hbmMask, 0, height, maskBits.data(), &bmi, DIB_RGB_COLORS);
+
+    ReleaseDC(NULL, hDC);
+
+    // 【修正】ここで変換関数を使って std::string にしてから渡す
+    std::ofstream file(WStringToString(filename), std::ios::binary);
+    
+    if (!file) {
+        DeleteObject(iconInfo.hbmColor);
+        DeleteObject(iconInfo.hbmMask);
+        return false;
+    }
+
+    // 1. ICONDIR
+    WORD idReserved = 0;
+    WORD idType = 1;
+    WORD idCount = 1;
+    file.write((char*)&idReserved, 2);
+    file.write((char*)&idType, 2);
+    file.write((char*)&idCount, 2);
+
+    // 2. ICONDIRENTRY
+    BYTE bWidth = (width == 256) ? 0 : (BYTE)width;
+    BYTE bHeight = (height == 256) ? 0 : (BYTE)height;
+    BYTE bColorCount = 0;
+    BYTE bReserved = 0;
+    WORD wPlanes = 1;
+    WORD wBitCount = 32;
+    DWORD dwBytesInRes = sizeof(BITMAPINFOHEADER) + dwBytesColor + dwBytesMask;
+    DWORD dwImageOffset = 22;
+
+    file.write((char*)&bWidth, 1);
+    file.write((char*)&bHeight, 1);
+    file.write((char*)&bColorCount, 1);
+    file.write((char*)&bReserved, 1);
+    file.write((char*)&wPlanes, 2);
+    file.write((char*)&wBitCount, 2);
+    file.write((char*)&dwBytesInRes, 4);
+    file.write((char*)&dwImageOffset, 4);
+
+    // 3. Image Data
+    bi.biHeight = height * 2;
+    file.write((char*)&bi, sizeof(bi));
+    file.write((char*)colorBits.data(), dwBytesColor);
+    file.write((char*)maskBits.data(), dwBytesMask);
+
+    file.close();
+
+    DeleteObject(iconInfo.hbmColor);
+    DeleteObject(iconInfo.hbmMask);
+
+    return true;
+}
+
+// 以下、メイン関数などは変更なし（GetProcessFullPath関数もそのまま必要）
+std::wstring GetProcessFullPath(DWORD processId) {
+    if (processId == 0) return L"";
+    std::wstring processPath = L"";
+    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
+    if (hProcess) {
+        wchar_t szPath[MAX_PATH];
+        if (GetModuleFileNameExW(hProcess, NULL, szPath, MAX_PATH)) {
+            processPath = szPath;
+        }
+        CloseHandle(hProcess);
+    }
+    return processPath;
+}
+
+int main() {
+    const wchar_t* TARGET_APP_NAME = L"discord.exe";
+    
+    HRESULT hr = CoInitialize(NULL);
+    if (FAILED(hr)) return -1;
+
+    IMMDeviceEnumerator* pEnumerator = NULL;
+    IMMDevice* pDevice = NULL;
+    IAudioSessionManager2* pSessionManager = NULL;
+    IAudioSessionEnumerator* pSessionEnumerator = NULL;
+
+    CoCreateInstance(__uuidof(MMDeviceEnumerator), NULL, CLSCTX_ALL, __uuidof(IMMDeviceEnumerator), (void**)&pEnumerator);
+    if (pEnumerator) pEnumerator->GetDefaultAudioEndpoint(eRender, eMultimedia, &pDevice);
+    if (pDevice) pDevice->Activate(__uuidof(IAudioSessionManager2), CLSCTX_ALL, NULL, (void**)&pSessionManager);
+    if (pSessionManager) pSessionManager->GetSessionEnumerator(&pSessionEnumerator);
+
+    if (pSessionEnumerator) {
+        int sessionCount;
+        pSessionEnumerator->GetCount(&sessionCount);
+
+        for (int i = 0; i < sessionCount; i++) {
+            IAudioSessionControl* pSessionControl = NULL;
+            IAudioSessionControl2* pSessionControl2 = NULL;
+            ISimpleAudioVolume* pSimpleVolume = NULL;
+
+            pSessionEnumerator->GetSession(i, &pSessionControl);
+            if (pSessionControl) {
+                pSessionControl->QueryInterface(__uuidof(IAudioSessionControl2), (void**)&pSessionControl2);
+                pSessionControl->QueryInterface(__uuidof(ISimpleAudioVolume), (void**)&pSimpleVolume);
+            }
+
+            if (pSessionControl2 && pSimpleVolume) {
+                DWORD processId = 0;
+                pSessionControl2->GetProcessId(&processId);
+
+                std::wstring fullPath = GetProcessFullPath(processId);
+                size_t lastSlash = fullPath.find_last_of(L"\\");
+                std::wstring fileName = (lastSlash != std::wstring::npos) ? fullPath.substr(lastSlash + 1) : fullPath;
+
+                if (_wcsicmp(fileName.c_str(), TARGET_APP_NAME) == 0) {
+                    std::wcout << L"Found target: " << fullPath << std::endl;
+
+                    float currentVol = 0.0f;
+                    pSimpleVolume->GetMasterVolume(&currentVol);
+                    float newVol = currentVol + 0.1f;
+                    if (newVol > 1.0f) newVol = 1.0f;
+                    pSimpleVolume->SetMasterVolume(newVol, NULL);
+                    std::wcout << L"Volume increased to: " << (int)(newVol * 100) << L"%" << std::endl;
+
+                    SHFILEINFOW sfi = { 0 };
+                    if (SHGetFileInfoW(fullPath.c_str(), 0, &sfi, sizeof(sfi), SHGFI_ICON | SHGFI_LARGEICON)) {
+                        HICON hIcon = sfi.hIcon;
+                        std::wstring savePath = L"discord_icon.ico";
+                        
+                        if (SaveIconToFile(hIcon, savePath)) {
+                            std::wcout << L"Icon saved to: " << savePath << std::endl;
+                        } else {
+                            std::wcout << L"Failed to save icon." << std::endl;
+                        }
+                        DestroyIcon(hIcon);
+                    }
+                }
+            }
+            SAFE_RELEASE(pSimpleVolume);
+            SAFE_RELEASE(pSessionControl2);
+            SAFE_RELEASE(pSessionControl);
+        }
+    }
+
+    SAFE_RELEASE(pSessionEnumerator);
+    SAFE_RELEASE(pSessionManager);
+    SAFE_RELEASE(pDevice);
+    SAFE_RELEASE(pEnumerator);
+    CoUninitialize();
+
+    return 0;
+}

@@ -83,11 +83,12 @@ int main(){
     /* ---------------------------------------------------------
      初期化完了応答
     --------------------------------------------------------- */
-    auto initFrame = FdFrame();
-    initFrame.eventType = FdEventType::INITIALIZED;
-    initFrame.eventArguments.resize(1);
-    initFrame.eventArguments[0] = disp.getSlaveCountReference();
-    usb.putTxFrame(initFrame);
+    usb.sendInitialized();
+
+    /* ---------------------------------------------------------
+     ステータス送信タイマ
+    --------------------------------------------------------- */
+    absolute_time_t lastStatusAt = get_absolute_time();
 
     while(1){
         tud_task();
@@ -95,5 +96,13 @@ int main(){
         lvl.routine();
         disp.routine();
         UsbAdapter::getInstance().process();
+
+        /* ---------------------------------------------------------
+         ステータス定期送信
+        --------------------------------------------------------- */
+        if(absolute_time_diff_us(lastStatusAt, get_absolute_time()) >= 100000){
+            usb.sendStatus();
+            lastStatusAt = get_absolute_time();
+        }
     }
 }

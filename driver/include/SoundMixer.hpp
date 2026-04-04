@@ -7,6 +7,9 @@
 #include <vector>
 #include "Images.hpp"
 
+struct IMMDevice;
+
+/// @brief 1 つの表示対象プロセスの状態
 struct Process {
     DWORD pid;
     std::unique_ptr<IconImage> img;
@@ -15,6 +18,7 @@ struct Process {
     bool isMuted;
 };
 
+/// @brief オーディオセッションの列挙と表示用状態を管理する
 class SoundMixer{
 public:
     static constexpr DWORD MASTER_PID = 0xFFFFFFFF;
@@ -29,7 +33,17 @@ public:
     bool hasDisplayChange(uint8_t slave_id);
     std::vector<uint8_t>& getDisplayData(uint8_t slave_id);
     uint16_t getLevelmeterData(uint8_t slave_id);
+
 private:
+    void markPageDisplayChanged();
+    void updateDisplayFlags(const std::vector<Process>& latestProcesses);
+    void buildDisplayCache(const Process& process);
+    size_t getDisplayProcessIndex(uint8_t slave_id) const;
+    bool applyMasterVolumeStep(float step, size_t processIdx, uint8_t slave_id, IMMDevice* defaultDevice);
+    bool applySessionVolumeStep(float step, size_t processIdx, uint8_t slave_id, IMMDevice* defaultDevice);
+    bool applyMasterMuteToggle(size_t processIdx, uint8_t slave_id, IMMDevice* defaultDevice);
+    bool applySessionMuteToggle(size_t processIdx, uint8_t slave_id, IMMDevice* defaultDevice);
+
     std::vector<Process> m_processes;
     std::vector<bool> m_hasUpdate;
     std::vector<uint8_t> m_displayCache;

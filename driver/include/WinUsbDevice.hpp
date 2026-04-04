@@ -17,6 +17,7 @@ static const GUID DEVICE_INTERFACE_GUID = {
     USB_DEVICE_INTERFACE_GUID_DATA4
 };
 
+/// @brief WinUSB デバイスの接続と I/O を管理する
 class WinUsbDevice {
 public:
     WinUsbDevice();
@@ -26,28 +27,11 @@ public:
     WinUsbDevice(const WinUsbDevice&) = delete;
     WinUsbDevice& operator=(const WinUsbDevice&) = delete;
 
-    /// @brief デバイスを検索しオープンする
-    /// @return 成功時true
     bool open();
-
-    /// @brief デバイスをクローズする
     void close();
-
-    /// @brief デバイスがオープン済みかどうか
     bool isOpen() const;
-
-    /// @brief デバイスが切断されたかどうか
     bool isDisconnected() const;
-
-    /// @brief Bulk OUT転送でデータを送信する
-    /// @param data 送信するバイト列
-    /// @return 送信バイト数 (失敗時 -1)
     int bulkWrite(const std::vector<uint8_t>& data);
-
-    /// @brief Bulk IN転送でデータを受信する
-    /// @param maxBytes 最大受信バイト数
-    /// @param timeoutMs タイムアウト(ms), 0=デフォルト
-    /// @return 受信データ (失敗時は空)
     std::vector<uint8_t> bulkRead(size_t maxBytes, uint32_t timeoutMs = 1000);
 
 private:
@@ -55,11 +39,7 @@ private:
     WINUSB_INTERFACE_HANDLE m_winusbHandle;
     bool m_disconnected;
 
-    /// @brief I/O エラー時にデバイスを切断状態にする
     void handleDeviceError();
-
-    /// @brief SetupAPI でデバイスパスを取得する
-    /// @return デバイスパス (見つからない場合は空文字列)
     std::string findDevicePath();
 };
 
