@@ -379,7 +379,7 @@ void SoundMixer::prevPage(){
 /// @brief 1 ページ次へ移動する
 void SoundMixer::nextPage(){
     // -------------------- 末尾ページを判定 --------------------
-    if(m_offset + m_slaveCount >= m_processes.size()) return;
+    if(m_offset + m_slaveCount + 1 >= m_processes.size()) return;
 
     // -------------------- オフセットを更新 --------------------
     m_offset++;
@@ -535,7 +535,8 @@ uint16_t SoundMixer::getLevelmeterData(uint8_t slave_id){
 /// @param slave_id 対象 slave ID
 /// @return Process 配列 index
 size_t SoundMixer::getDisplayProcessIndex(uint8_t slave_id) const{
-    return 1 + static_cast<size_t>(slave_id) + static_cast<size_t>(m_offset);
+    if(slave_id == 0) return 0;
+    return static_cast<size_t>(slave_id) + static_cast<size_t>(m_offset);
 }
 
 /// @brief 1 つの Process から表示バッファを生成する

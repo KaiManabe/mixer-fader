@@ -28,11 +28,11 @@ int main(void){
 	// ---- 実行状態を初期化 ----
 	UsbComm comm(dev);
 	SoundMixer mixer(MAX_SLAVES);
-	uint8_t activeSlaveCount = static_cast<uint8_t>(MAX_SLAVES);
+	uint8_t activeSlaveLastId = static_cast<uint8_t>(MAX_SLAVES - 1);
 
-	auto syncAllLevels = [&comm, &mixer](uint8_t slaveCount) {
+	auto syncAllLevels = [&comm, &mixer](uint8_t slaveLastId) {
 		// ---------------- 送信対象 slave 数を制限 ----------------
-		const uint8_t count = (std::min)(slaveCount, static_cast<uint8_t>(MAX_SLAVES));
+		const uint8_t count = (std::min)(static_cast<uint8_t>(slaveLastId + 1), static_cast<uint8_t>(MAX_SLAVES));
 
 		// ---------------- 全 slave のレベルを送信 ----------------
 		for (uint8_t sid = 0; sid < count; ++sid) {
@@ -40,9 +40,9 @@ int main(void){
 		}
 	};
 
-	auto syncDirtyDisplays = [&](uint8_t slaveCount) {
+	auto syncDirtyDisplays = [&](uint8_t slaveLastId) {
 		// ---------------- 送信対象 slave 数を制限 ----------------
-		const uint8_t count = (std::min)(slaveCount, static_cast<uint8_t>(MAX_SLAVES));
+		const uint8_t count = (std::min)(static_cast<uint8_t>(slaveLastId + 1), static_cast<uint8_t>(MAX_SLAVES));
 
 		// ---------------- 差分のある表示だけ送信 ----------------
 		for (uint8_t sid = 0; sid < count; ++sid) {
@@ -57,9 +57,9 @@ int main(void){
 		}
 	};
 
-	auto syncAllDisplays = [&](uint8_t slaveCount) {
+	auto syncAllDisplays = [&](uint8_t slaveLastId) {
 		// ---------------- 送信対象 slave 数を制限 ----------------
-		const uint8_t count = (std::min)(slaveCount, static_cast<uint8_t>(MAX_SLAVES));
+		const uint8_t count = (std::min)(static_cast<uint8_t>(slaveLastId + 1), static_cast<uint8_t>(MAX_SLAVES));
 
 		// ------------------ 全表示を送信 ------------------
 		for (uint8_t sid = 0; sid < count; ++sid) {
@@ -75,21 +75,28 @@ int main(void){
 		mixer.refleshProcess();
 
 		// -------------------- 現在状態を送信 --------------------
-		syncAllLevels(activeSlaveCount);
-		syncDirtyDisplays(activeSlaveCount);
+		syncAllLevels(activeSlaveLastId);
+		syncDirtyDisplays(activeSlaveLastId);
 	};
 
-	auto updateSlaveCountAndSync = [&](const FdFrame& frame) {
+	auto updateSlaveCountAndSync = [&](const FdFrame& frame, bool forceSync) {
 		// ---------------- slave 数をフレームから反映 ----------------
+		uint8_t nextSlaveLastId = activeSlaveLastId;
 		if (!frame.eventArguments.empty()) {
-			activeSlaveCount = (std::min)(frame.eventArguments[0], static_cast<uint8_t>(MAX_SLAVES));
+			nextSlaveLastId = (std::min)(frame.eventArguments[0], static_cast<uint8_t>(MAX_SLAVES - 1));
 		}
 
-		printf("[INFO] Device status (slaves=%u)\n", activeSlaveCount);
-		mixer.setSlaveCount(activeSlaveCount);
+		// ---------------- slave 数変化時のみ反映 ----------------
+		if (!forceSync && nextSlaveLastId == activeSlaveLastId) {
+			return;
+		}
+
+		activeSlaveLastId = nextSlaveLastId;
+		printf("[INFO] Device status (slaves=%u)\n", static_cast<unsigned>(activeSlaveLastId + 1));
+		mixer.setSlaveCount(activeSlaveLastId);
 		mixer.refleshProcess();
-		syncAllLevels(activeSlaveCount);
-		syncAllDisplays(activeSlaveCount);
+		syncAllLevels(activeSlaveLastId);
+		syncAllDisplays(activeSlaveLastId);
 	};
 
 	// ---- メインループ ----
@@ -118,13 +125,13 @@ int main(void){
 			// ----------------- 初期化イベントを反映 -----------------
 			if (f.eventType == FdEventType::INITIALIZED) {
 				printf("[INFO] Device initialized\n");
-				updateSlaveCountAndSync(f);
+				updateSlaveCountAndSync(f, true);
 				continue;
 			}
 
 			// ------------------ ステータスイベントを反映 ------------------
 			if (f.eventType == FdEventType::STATUS) {
-				updateSlaveCountAndSync(f);
+				updateSlaveCountAndSync(f, false);
 				continue;
 			}
 
@@ -135,18 +142,18 @@ int main(void){
 				// ------------- ページ送り入力を処理 -------------
 				if (f.eventType == FdEventType::ENC_ROTP && sid == 255) {
 					mixer.nextPage();
-					syncDirtyDisplays(activeSlaveCount);
+					syncDirtyDisplays(activeSlaveLastId);
 					continue;
 				}
 
 				if (f.eventType == FdEventType::ENC_ROTN && sid == 255) {
 					mixer.prevPage();
-					syncDirtyDisplays(activeSlaveCount);
+					syncDirtyDisplays(activeSlaveLastId);
 					continue;
 				}
 
 				// -------------- 個別 slave の入力を処理 --------------
-				if (sid < activeSlaveCount) {
+				if (sid <= activeSlaveLastId) {
 					if (f.eventType == FdEventType::ENC_ROTP) {
 						mixer.setVolume(sid, true);
 					} else if (f.eventType == FdEventType::ENC_ROTN) {
@@ -156,14 +163,14 @@ int main(void){
 					}
 
 					comm.sendLevelMeter(sid, mixer.getLevelmeterData(sid));
-					syncDirtyDisplays(activeSlaveCount);
+					syncDirtyDisplays(activeSlaveLastId);
 				}
 			}
 		}
 
 		// ------------------ 定期的に状態を再同期 ------------------
 		const auto now = clock::now();
-		if (now - lastRefresh >= std::chrono::milliseconds(100)) {
+		if (now - lastRefresh >= std::chrono::milliseconds(50)) {
 			refreshAndSync();
 			lastRefresh = now;
 		}
