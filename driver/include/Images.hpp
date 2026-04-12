@@ -14,10 +14,14 @@ typedef std::array<std::array<std::array<uint8_t, 3>, 80>, 80> rgb80x80;
 /// @brief アプリケーションアイコン画像を保持する
 class IconImage{
 public:
+    static constexpr size_t TRANSPORT_BYTES = 80u * 80u * 2u;
+
     IconImage(const std::wstring& path);
-    rgb80x80& getBinaryImage();
+    const rgb80x80& getBinaryImage() const;
+    const std::vector<uint8_t>& getTransportBinary() const;
 private:
     rgb80x80 m_binaryImage;
+    std::vector<uint8_t> m_transportBinary;
 };
 
 

@@ -379,7 +379,7 @@ void SoundMixer::prevPage(){
 /// @brief 1 ページ次へ移動する
 void SoundMixer::nextPage(){
     // -------------------- 末尾ページを判定 --------------------
-    if(m_offset + m_slaveCount + 1 >= m_processes.size()) return;
+    if(static_cast<size_t>(m_offset) + static_cast<size_t>(m_slaveCount) + 1u >= m_processes.size()) return;
 
     // -------------------- オフセットを更新 --------------------
     m_offset++;
@@ -425,18 +425,6 @@ void SoundMixer::updateDisplayFlags(const std::vector<Process>& latestProcesses)
         // ------------------- 表示対象なら中身を検査 -------------------
         if(inView){
             if(m_processes[i].pid != latestProcesses[i].pid){
-                if (viewSlot < m_hasUpdate.size()) {
-                    m_hasUpdate[viewSlot] = true;
-                }
-                continue;
-            }
-            if(m_processes[i].volume != latestProcesses[i].volume){
-                if (viewSlot < m_hasUpdate.size()) {
-                    m_hasUpdate[viewSlot] = true;
-                }
-                continue;
-            }
-            if(m_processes[i].isMuted != latestProcesses[i].isMuted){
                 if (viewSlot < m_hasUpdate.size()) {
                     m_hasUpdate[viewSlot] = true;
                 }

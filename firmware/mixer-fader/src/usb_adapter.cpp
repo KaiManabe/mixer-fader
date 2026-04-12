@@ -20,11 +20,8 @@ void UsbAdapter::init(UsbComm* usb) {
 
 void UsbAdapter::onBulkOutComplete(uint8_t const* buffer, uint16_t bufsize) {
     if (m_usb == nullptr) return;
-    
-    // Feed received bytes to UsbComm reception handler
-    for (uint16_t i = 0; i < bufsize; i++) {
-        m_usb->putRxByteBuf(buffer[i]);
-    }
+
+    m_usb->putRxBytes(buffer, bufsize);
 }
 
 void UsbAdapter::handleBulkInTransmit() {
@@ -51,8 +48,8 @@ void UsbAdapter::process() {
         onBulkOutComplete(buf, static_cast<uint16_t>(count));
     }
     
-    // Process any received complete frames
-    m_usb->processReceivedFrame();
+    // Apply queued commands and queue status updates.
+    m_usb->routine();
     
     // Handle TX transmission
     handleBulkInTransmit();

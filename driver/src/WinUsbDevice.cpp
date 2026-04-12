@@ -223,8 +223,8 @@ int WinUsbDevice::bulkWrite(const std::vector<uint8_t>& data)
             }
             ok = TRUE;
         } else {
-            WinUsb_AbortPipe(m_winusbHandle, USB_EP_OUT);
-            WinUsb_ResetPipe(m_winusbHandle, USB_EP_OUT);
+            CancelIoEx(m_deviceHandle, &ov);
+            WaitForSingleObject(ov.hEvent, 100);
             fprintf(stderr, "[ERROR] WinUsb_WritePipe timed out\n");
             CloseHandle(ov.hEvent);
             return -1;
@@ -282,8 +282,8 @@ std::vector<uint8_t> WinUsbDevice::bulkRead(size_t maxBytes, uint32_t timeoutMs)
             }
             ok = TRUE;
         } else {
-            WinUsb_AbortPipe(m_winusbHandle, USB_EP_IN);
-            WinUsb_ResetPipe(m_winusbHandle, USB_EP_IN);
+            CancelIoEx(m_deviceHandle, &ov);
+            WaitForSingleObject(ov.hEvent, 100);
             CloseHandle(ov.hEvent);
             return {};  // timeout
         }

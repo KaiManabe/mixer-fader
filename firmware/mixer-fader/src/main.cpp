@@ -3,6 +3,7 @@
 #include "pico/stdlib.h"
 #include "hardware/spi.h"
 #include "hardware/dma.h"
+#include <memory>
 #include <vector>
 #include <string.h>
 #include "Encoder.hpp"
@@ -48,7 +49,7 @@ int main(){
      初期化
     --------------------------------------------------------- */
     printf("Initializing Display manager...\n");
-    auto disp = Display::getInstance();
+    auto& disp = Display::getInstance();
     printf("Initialized Display manager...\n");
 
     printf("Initializing Encoder manager...\n");
@@ -63,18 +64,18 @@ int main(){
     printf("Initialized TinyUSB...\n");
 
     printf("Initializing UsbComm...\n");
-    auto usb = UsbComm(disp, lvl);
+    auto usb = std::make_unique<UsbComm>(disp, lvl);
     printf("Initialized UsbComm...\n");
     
     printf("Initializing UsbAdapter...\n");
-    UsbAdapter::getInstance().init(&usb);
+    UsbAdapter::getInstance().init(usb.get());
     printf("Initialized UsbAdapter...\n");
 
     /* ---------------------------------------------------------
      コールバック割当
     --------------------------------------------------------- */
-    const auto callback = [&usb, &enc](EncoderEvent e){
-        sendTxFrame(usb, e);
+    const auto callback = [&usb](EncoderEvent e){
+        sendTxFrame(*usb, e);
     };
     enc.attachEventListener(callback);
 
@@ -83,12 +84,6 @@ int main(){
     /* ---------------------------------------------------------
      初期化完了応答
     --------------------------------------------------------- */
-    auto initFrame = FdFrame();
-    initFrame.eventType = FdEventType::INITIALIZED;
-    initFrame.eventArguments.resize(1);
-    initFrame.eventArguments[0] = disp.getSlaveCountReference();
-    usb.putTxFrame(initFrame);
-
     while(1){
         tud_task();
         enc.routine();

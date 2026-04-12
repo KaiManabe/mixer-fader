@@ -13,9 +13,13 @@ TARGET   := $(BUILDDIR)/mixer-fader-driver.exe
 SRCS := $(wildcard $(SRCDIR)/*.cpp)
 OBJS := $(patsubst $(SRCDIR)/%.cpp,$(BUILDDIR)/%.o,$(SRCS))
 
-.PHONY: all clean
+.PHONY: all clean run
 
 all: $(TARGET)
+
+run: $(TARGET)
+	@echo "[INFO] Running: $(TARGET)"
+	@$(TARGET)
 
 $(TARGET): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
